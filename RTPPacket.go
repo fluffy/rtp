@@ -28,7 +28,7 @@ Note when creating packets must set CSRC before setting Header extentions before
 import (
 	"encoding/binary"
 	"errors"
-	//"fmt"
+	"fmt"
 )
 
 const (
@@ -239,6 +239,88 @@ func (p *RTPPacket) SetPadding(sizeMult int) error {
 	}
 
 	return nil
+}
+
+func (p *RTPPacket) GetOHB() (pt int8, seq uint16, m bool) {
+	pt = p.GetPT()
+	seq = p.GetSeq()
+	m = p.GetMaker()
+
+	payload := p.GetPayload()
+	offset := len(payload) - 1
+
+	config := payload[offset]
+	offset--
+
+	if config&0x01 > 0 {
+		seq = binary.BigEndian.Uint16(payload[offset-1:])
+		offset -= 2
+	}
+
+	if config&0x02 > 0 {
+		pt = int8(payload[offset])
+		offset -= 1
+	}
+
+	if config&0x03 > 0 {
+		m = config&0x8 > 0
+	}
+
+	return
+}
+
+func (p *RTPPacket) SetOHB(pt int8, seq uint16, m bool) error {
+	currentPt := p.GetPT()
+	currentSeq := p.GetSeq()
+	currentM := p.GetMaker()
+
+	var config byte = 0
+	ohbLen := 1
+
+	if seq != currentSeq {
+		config |= 0x1
+		ohbLen += 2
+	}
+
+	if pt != currentPt {
+		config |= 0x2
+		ohbLen += 1
+	}
+
+	if m != currentM {
+		config |= 0x4
+		if m {
+			config |= 0x8
+		}
+	}
+
+	packetLen := len(p.buffer) + ohbLen
+	if packetLen > cap(p.buffer) {
+		return errors.New("rtp: PHB too large to fit in packet MTU")
+	}
+	p.buffer = p.buffer[0:packetLen] // expand buffer to packet length
+	offset := packetLen - 1
+
+	p.buffer[offset] = config
+	offset--
+
+	if config&0x01 > 0 {
+		binary.BigEndian.PutUint16(p.buffer[offset-1:], seq)
+		offset -= 2
+	}
+
+	if config&0x02 > 0 {
+		p.buffer[offset] = byte(pt)
+		offset -= 1
+	}
+
+	return nil
+}
+
+func (p *RTPPacket) String() string {
+	payload := p.GetPayload()
+	ret := fmt.Sprintf("pt=%d seq=%d ts=%d dataLen=%d data=%x", p.GetPT(), p.GetSeq(), p.GetTimestamp(), len(payload), payload)
+	return ret
 }
 
 func NewRTPPacket(payload []byte, payloadType int8, seq uint16, ts uint32, ssrc uint32) *RTPPacket {

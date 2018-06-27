@@ -1,6 +1,9 @@
 package rtp
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func Test1(t *testing.T) {
 	p := NewRTPPacket([]byte{1, 2, 3, 4}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
@@ -152,5 +155,24 @@ func Test2(t *testing.T) {
 	pSize := len(p.buffer)
 	if pSize != 48 {
 		t.Errorf("Packet size is wrong. Got %d", pSize)
+	}
+}
+
+func Test3(t *testing.T) {
+	p := NewRTPPacket([]byte{0xa1, 0xa2, 0xa3, 0xa4}, 2 /*pt*/, 3 /*seq*/, 4 /*ts*/, 5 /*ssrc*/)
+
+	p.SetOHB(6, 7, true)
+	fmt.Printf("Post setOHB %s\n", p.String())
+
+	pt, seq, m := p.GetOHB()
+
+	if pt != 6 {
+		t.Errorf("OHB PT is wrong. Got %d ", pt)
+	}
+	if seq != 7 {
+		t.Errorf("OHB seq is wrong. Got %d ", seq)
+	}
+	if m != true {
+		t.Errorf("OHB m wrong.")
 	}
 }
