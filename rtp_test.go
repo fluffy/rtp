@@ -2,6 +2,7 @@ package rtp
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 )
 
@@ -176,36 +177,49 @@ func TestOHB(t *testing.T) {
 	}
 }
 
-func TestEncrypt(t *testing.T) {
-	p := NewRTPPacket([]byte{1, 2, 3, 4, 5}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
+// https://tools.ietf.org/html/rfc7714#section-16.1.1
+func TestGCM(t *testing.T) {
+	plaintextHex := "8040f17b8041f8d35501a0b247616c6c" +
+		"696120657374206f6d6e697320646976" +
+		"69736120696e20706172746573207472" +
+		"6573"
+	keyHex := "000102030405060708090a0b0c0d0e0f"
+	saltHex := "517569642070726f2071756f"
+	ciphertextHex := "8040f17b8041f8d35501a0b2f24de3a3" +
+		"fb34de6cacba861c9d7e4bcabe633bd5" +
+		"0d294e6f42a5f47a51c7d19b36de3adf" +
+		"8833899d7f27beb16a9152cf765ee439" +
+		"0cce"
 
-	key := []byte{
-		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-	}
+	plaintext, _ := hex.DecodeString(plaintextHex)
+	key, _ := hex.DecodeString(keyHex)
+	salt, _ := hex.DecodeString(saltHex)
+	ciphertext, _ := hex.DecodeString(ciphertextHex)
 
-	nonce := []byte{
-		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-		0x18, 0x19, 0x1a, 0x1b,
-	}
+	original := RTPPacket{}
+	original.buffer = plaintext
 
 	encrypted := RTPPacket{}
-	encrypted.buffer = make([]byte, len(p.buffer))
-	copy(encrypted.buffer, p.buffer)
-	err := encrypted.EncryptGCM(key, nonce)
+	encrypted.buffer = make([]byte, len(original.buffer))
+	copy(encrypted.buffer, original.buffer)
+	err := encrypted.EncryptGCM(0, key, salt)
 	if err != nil {
 		t.Fatalf("Encrypt error: %v", err)
+	}
+
+	if !bytes.Equal(encrypted.buffer, ciphertext) {
+		t.Fatalf("Known-answer test failed: %x != %x", encrypted.buffer, ciphertext)
 	}
 
 	decrypted := RTPPacket{}
 	decrypted.buffer = make([]byte, len(encrypted.buffer))
 	copy(decrypted.buffer, encrypted.buffer)
-	err = decrypted.DecryptGCM(key, nonce)
+	err = decrypted.DecryptGCM(0, key, salt)
 	if err != nil {
 		t.Fatalf("Decrypt error: %v", err)
 	}
 
-	if !bytes.Equal(p.buffer, decrypted.buffer) {
-		t.Fatalf("Round-trip failed: %x != %x", p.buffer, decrypted.buffer)
+	if !bytes.Equal(original.buffer, decrypted.buffer) {
+		t.Fatalf("Round-trip failed: %x != %x", original.buffer, decrypted.buffer)
 	}
 }
