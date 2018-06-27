@@ -2,11 +2,10 @@ package rtp
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
-func Test1(t *testing.T) {
+func TestConstructGet(t *testing.T) {
 	p := NewRTPPacket([]byte{1, 2, 3, 4}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
 
 	pad := p.GetPad()
@@ -76,7 +75,7 @@ func Test1(t *testing.T) {
 	}
 }
 
-func Test2(t *testing.T) {
+func TestSet(t *testing.T) {
 	p := NewRTPPacket([]byte{1, 2, 3, 4, 5}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
 
 	p.SetMarker(true)
@@ -159,11 +158,10 @@ func Test2(t *testing.T) {
 	}
 }
 
-func Test3(t *testing.T) {
+func TestOHB(t *testing.T) {
 	p := NewRTPPacket([]byte{0xa1, 0xa2, 0xa3, 0xa4}, 2 /*pt*/, 3 /*seq*/, 4 /*ts*/, 5 /*ssrc*/)
 
 	p.SetOHB(6, 7, true)
-	fmt.Printf("Post setOHB %s\n", p.String())
 
 	pt, seq, m := p.GetOHB()
 
