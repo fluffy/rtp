@@ -325,7 +325,38 @@ func (p *RTPPacket) String() string {
 	return ret
 }
 
-func (p *RTPPacket) EncryptGCM(key, nonce []byte) error {
+//   0  0  0  0  0  0  0  0  0  0  1  1
+//   0  1  2  3  4  5  6  7  8  9  0  1
+// +--+--+--+--+--+--+--+--+--+--+--+--+
+// |00|00|    SSRC   |     ROC   | SEQ |---+
+// +--+--+--+--+--+--+--+--+--+--+--+--+   |
+//                                         |
+// +--+--+--+--+--+--+--+--+--+--+--+--+   |
+// |         Encryption Salt           |->(+)
+// +--+--+--+--+--+--+--+--+--+--+--+--+   |
+//                                         |
+// +--+--+--+--+--+--+--+--+--+--+--+--+   |
+// |       Initialization Vector       |<--+
+// +--+--+--+--+--+--+--+--+--+--+--+--+
+func (p *RTPPacket) gcmIV(roc uint32, salt []byte) []byte {
+	iv := make([]byte, 12)
+	copy(iv, salt)
+
+	iv[2] ^= p.buffer[8] // SSRC
+	iv[3] ^= p.buffer[9]
+	iv[4] ^= p.buffer[10]
+	iv[5] ^= p.buffer[11]
+	iv[6] ^= byte(roc >> 24) // ROC
+	iv[7] ^= byte(roc >> 16)
+	iv[8] ^= byte(roc >> 8)
+	iv[9] ^= byte(roc >> 0)
+	iv[10] ^= p.buffer[2] // SEQ
+	iv[11] ^= p.buffer[3]
+
+	return iv
+}
+
+func (p *RTPPacket) EncryptGCM(roc uint32, key, salt []byte) error {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -335,6 +366,8 @@ func (p *RTPPacket) EncryptGCM(key, nonce []byte) error {
 	if err != nil {
 		return err
 	}
+
+	iv := p.gcmIV(roc, salt)
 
 	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
 	end := len(p.buffer)
@@ -344,11 +377,11 @@ func (p *RTPPacket) EncryptGCM(key, nonce []byte) error {
 
 	aad := p.buffer[0:start]
 	pt := p.buffer[start:end]
-	gcm.Seal(p.buffer[start:start], nonce, pt, aad)
+	gcm.Seal(p.buffer[start:start], iv, pt, aad)
 	return nil
 }
 
-func (p *RTPPacket) DecryptGCM(key, nonce []byte) error {
+func (p *RTPPacket) DecryptGCM(roc uint32, key, salt []byte) error {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -359,12 +392,14 @@ func (p *RTPPacket) DecryptGCM(key, nonce []byte) error {
 		return err
 	}
 
+	iv := p.gcmIV(roc, salt)
+
 	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
 	end := len(p.buffer)
 
 	aad := p.buffer[0:start]
 	ct := p.buffer[start:end]
-	_, err = gcm.Open(p.buffer[start:start], nonce, ct, aad)
+	_, err = gcm.Open(p.buffer[start:start], iv, ct, aad)
 	if err != nil {
 		return err
 	}
