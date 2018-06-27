@@ -41,6 +41,32 @@ type RTPPacket struct {
 	buffer []byte // contains full packet header, ext, and payload in netwrok byte order
 }
 
+func (p *RTPPacket) getCSRCOffset() int {
+	return 12
+}
+
+func (p *RTPPacket) getHdrExtOffset() int {
+	return 12 + 4*p.GetCC()
+}
+
+func (p *RTPPacket) getPayloadOffset() int {
+	ret := 12 + 4*p.GetCC()
+	extLen := p.GetHdrExtLen()
+	if extLen > 0 {
+		ret += extLen + 4
+	}
+	return ret
+}
+
+func (p *RTPPacket) getPadOffset() int {
+	var pad byte = 0
+	if p.GetPad() {
+		pad = p.buffer[len(p.buffer)-1]
+	}
+	offset := len(p.buffer) - int(pad)
+	return offset
+}
+
 func (p *RTPPacket) SetPad(marker bool) {
 	if marker {
 		p.buffer[0] |= 0x20
@@ -65,8 +91,12 @@ func (p *RTPPacket) GetExtBit() bool {
 	return (p.buffer[0] & 0x10) > 0
 }
 
-func (p *RTPPacket) SetCC(cc uint8) {
-	p.buffer[0] = (p.buffer[0] & 0xF) | cc
+func (p *RTPPacket) SetCC(cc int) error {
+	if (cc < 0) || (cc > 15) {
+		return errors.New("rtp: invalid CC value")
+	}
+	p.buffer[0] = (p.buffer[0] & 0xF) | byte(cc)
+	return nil
 }
 
 func (p *RTPPacket) GetCC() int {
@@ -119,7 +149,7 @@ func (p *RTPPacket) GetSSRC() uint32 {
 }
 
 func (p *RTPPacket) SetCSRC(csrc []uint32) error {
-	cc := uint8(len(csrc))
+	cc := len(csrc)
 	if cc > 15 {
 		return errors.New("rtp: CSRC list too large")
 	}
@@ -153,13 +183,12 @@ func (p *RTPPacket) GetCSRC() []uint32 {
 	return csrc
 }
 
-func (p *RTPPacket) GetHdrExtLen() (extLen uint16) {
+func (p *RTPPacket) GetHdrExtLen() (extLen int) {
 	extLen = 0
 
 	if p.GetExtBit() {
-
-		offset := 12 + 4*uint16(p.GetCC())
-		extLen = binary.BigEndian.Uint16(p.buffer[offset+2:])
+		offset := p.getHdrExtOffset()
+		extLen = int(binary.BigEndian.Uint16(p.buffer[offset+2:]))
 	}
 
 	return
@@ -170,10 +199,10 @@ func (p *RTPPacket) GetHdrExt() (extNum uint16, ext []byte) {
 
 	if p.GetExtBit() {
 
-		offset := 12 + 4*uint16(p.GetCC())
+		offset := p.getHdrExtOffset()
 
 		extNum = binary.BigEndian.Uint16(p.buffer[offset:])
-		extLen := binary.BigEndian.Uint16(p.buffer[offset+2:])
+		extLen := int(binary.BigEndian.Uint16(p.buffer[offset+2:]))
 
 		ext = p.buffer[offset+4 : offset+4+extLen]
 	}
@@ -186,7 +215,7 @@ func (p *RTPPacket) SetHdrExt(extNum uint16, ext []byte) error {
 
 	p.SetExtBit(true)
 
-	offset := 12 + 4*p.GetCC()
+	offset := p.getHdrExtOffset()
 
 	if offset+4+len(ext) > cap(p.buffer) {
 		return errors.New("rtp: header extention too large to fit in packet MTU")
@@ -202,12 +231,17 @@ func (p *RTPPacket) SetHdrExt(extNum uint16, ext []byte) error {
 }
 
 func (p *RTPPacket) GetPayload() []byte {
-	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
+	start := p.getPayloadOffset()
+
 	var pad byte = 0
 	if p.GetPad() {
 		pad = p.buffer[len(p.buffer)-1]
 	}
 	end := len(p.buffer) - int(pad)
+
+	if start >= end {
+		return nil
+	}
 
 	return p.buffer[start:end]
 }
@@ -215,13 +249,14 @@ func (p *RTPPacket) GetPayload() []byte {
 func (p *RTPPacket) SetPayload(payload []byte) error {
 	/* note call this after seting CSRC and header extentions */
 
-	offset := 12 + 4*p.GetCC() + int(p.GetHdrExtLen())
-	packetLen := offset + (len(payload))
-	if packetLen > cap(p.buffer) {
+	offset := p.getPayloadOffset()
 
+	packetLen := offset + len(payload)
+	if packetLen > cap(p.buffer) {
 		return errors.New("rtp: payload too large to fit in packet MTU")
 	}
-	p.buffer = p.buffer[0:packetLen] // truncate buffer to packet length
+
+	p.buffer = p.buffer[0:packetLen] // extend buffer to packet length
 
 	copy(p.buffer[offset:], payload)
 
@@ -321,7 +356,15 @@ func (p *RTPPacket) SetOHB(pt int8, seq uint16, m bool) error {
 
 func (p *RTPPacket) String() string {
 	payload := p.GetPayload()
-	ret := fmt.Sprintf("pt=%d seq=%d ts=%d dataLen=%d data=%x", p.GetPT(), p.GetSeq(), p.GetTimestamp(), len(payload), payload)
+	ret := fmt.Sprintf("pt=%d seq=%d ts=%d dataLen=%d", p.GetPT(), p.GetSeq(), p.GetTimestamp(), len(payload))
+	if len(payload) > 0 {
+		ret += fmt.Sprintf(" data=0x%X", payload)
+	}
+	if p.GetHdrExtLen() > 0 {
+		extNum, extData := p.GetHdrExt()
+		ret += fmt.Sprintf(" extLen=%d extNum=0x%X extData=0x%X", p.GetHdrExtLen(), extNum, extData)
+	}
+
 	return ret
 }
 
@@ -369,7 +412,7 @@ func (p *RTPPacket) EncryptGCM(roc uint32, key, salt []byte) error {
 
 	iv := p.gcmIV(roc, salt)
 
-	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
+	start := 12 + 4*p.GetCC() + p.GetHdrExtLen()
 	end := len(p.buffer)
 
 	tag := make([]byte, gcm.Overhead())
@@ -394,7 +437,7 @@ func (p *RTPPacket) DecryptGCM(roc uint32, key, salt []byte) error {
 
 	iv := p.gcmIV(roc, salt)
 
-	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
+	start := 12 + 4*p.GetCC() + p.GetHdrExtLen()
 	end := len(p.buffer)
 
 	aad := p.buffer[0:start]
