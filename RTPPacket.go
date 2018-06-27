@@ -26,6 +26,8 @@ Note when creating packets must set CSRC before setting Header extentions before
 */
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -321,6 +323,54 @@ func (p *RTPPacket) String() string {
 	payload := p.GetPayload()
 	ret := fmt.Sprintf("pt=%d seq=%d ts=%d dataLen=%d data=%x", p.GetPT(), p.GetSeq(), p.GetTimestamp(), len(payload), payload)
 	return ret
+}
+
+func (p *RTPPacket) EncryptGCM(key, nonce []byte) error {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+
+	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
+	end := len(p.buffer)
+
+	tag := make([]byte, gcm.Overhead())
+	p.buffer = append(p.buffer, tag...)
+
+	aad := p.buffer[0:start]
+	pt := p.buffer[start:end]
+	gcm.Seal(p.buffer[start:start], nonce, pt, aad)
+	return nil
+}
+
+func (p *RTPPacket) DecryptGCM(key, nonce []byte) error {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+
+	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
+	end := len(p.buffer)
+
+	aad := p.buffer[0:start]
+	ct := p.buffer[start:end]
+	_, err = gcm.Open(p.buffer[start:start], nonce, ct, aad)
+	if err != nil {
+		return err
+	}
+
+	p.buffer = p.buffer[:len(p.buffer)-gcm.Overhead()]
+	return nil
 }
 
 func NewRTPPacket(payload []byte, payloadType int8, seq uint16, ts uint32, ssrc uint32) *RTPPacket {

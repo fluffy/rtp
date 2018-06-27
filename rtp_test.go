@@ -1,6 +1,7 @@
 package rtp
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 )
@@ -174,5 +175,39 @@ func Test3(t *testing.T) {
 	}
 	if m != true {
 		t.Errorf("OHB m wrong.")
+	}
+}
+
+func TestEncrypt(t *testing.T) {
+	p := NewRTPPacket([]byte{1, 2, 3, 4, 5}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
+
+	key := []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+	}
+
+	nonce := []byte{
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		0x18, 0x19, 0x1a, 0x1b,
+	}
+
+	encrypted := RTPPacket{}
+	encrypted.buffer = make([]byte, len(p.buffer))
+	copy(encrypted.buffer, p.buffer)
+	err := encrypted.EncryptGCM(key, nonce)
+	if err != nil {
+		t.Fatalf("Encrypt error: %v", err)
+	}
+
+	decrypted := RTPPacket{}
+	decrypted.buffer = make([]byte, len(encrypted.buffer))
+	copy(decrypted.buffer, encrypted.buffer)
+	err = decrypted.DecryptGCM(key, nonce)
+	if err != nil {
+		t.Fatalf("Decrypt error: %v", err)
+	}
+
+	if !bytes.Equal(p.buffer, decrypted.buffer) {
+		t.Fatalf("Round-trip failed: %x != %x", p.buffer, decrypted.buffer)
 	}
 }
