@@ -28,7 +28,7 @@ Note when creating packets must set CSRC before setting Header extentions before
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
+	//"fmt"
 )
 
 const (
@@ -117,10 +117,6 @@ func (p *RTPPacket) GetSSRC() uint32 {
 }
 
 func (p *RTPPacket) SetCSRC(csrc []uint32) error {
-	for i := 0; i < len(csrc); i++ {
-		fmt.Printf("CSRC %d = %d \n", i, csrc[i])
-	}
-
 	cc := uint8(len(csrc))
 	if cc > 15 {
 		return errors.New("rtp: CSRC list too large")
