@@ -15,6 +15,12 @@ package rtp
    |                             ....                              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+Header extentions described in
+https://tools.ietf.org/html/rfc8285
+
+OHB defined in
+https://datatracker.ietf.org/doc/draft-ietf-perc-double/
+
 Note when creating packets must set CSRC before setting Header extentions before setting payload bure settin pad.
 
 */
@@ -29,92 +35,88 @@ const (
 	MTU = 1500
 )
 
-type RawPacket struct {
+type RTPPacket struct {
 	buffer []byte // contains full packet header, ext, and payload in netwrok byte order
-
 }
 
-func (p *RawPacket) setPad(marker bool) {
+func (p *RTPPacket) SetPad(marker bool) {
 	if marker {
 		p.buffer[0] |= 0x20
 	} else {
 		p.buffer[1] &= (0xFF ^ 0x20)
 	}
-
 }
 
-func (p *RawPacket) getPad() bool {
+func (p *RTPPacket) GetPad() bool {
 	return (p.buffer[0] & 0x10) > 0
 }
 
-func (p *RawPacket) setExtBit(x bool) {
+func (p *RTPPacket) SetExtBit(x bool) {
 	if x {
 		p.buffer[0] |= 0x10
 	} else {
 		p.buffer[1] &= (0xFF ^ 0x10)
 	}
-
 }
 
-func (p *RawPacket) getExtBit() bool {
+func (p *RTPPacket) GetExtBit() bool {
 	return (p.buffer[0] & 0x10) > 0
 }
 
-func (p *RawPacket) setCC(cc uint8) {
+func (p *RTPPacket) SetCC(cc uint8) {
 	p.buffer[0] = (p.buffer[0] & 0xF) | cc
 }
 
-func (p *RawPacket) getCC() int {
+func (p *RTPPacket) GetCC() int {
 	r := p.buffer[0] & 0x0F
 	return int(r)
 }
 
-func (p *RawPacket) setMarker(marker bool) {
+func (p *RTPPacket) SetMarker(marker bool) {
 	if marker {
 		p.buffer[1] |= 0xF0
 	} else {
 		p.buffer[1] &= (0xFF ^ 0xF0)
 	}
-
 }
 
-func (p *RawPacket) getMaker() bool {
+func (p *RTPPacket) GetMaker() bool {
 	return (p.buffer[1] & 0xF0) > 0
 }
 
-func (p *RawPacket) setPT(pt int8) {
+func (p *RTPPacket) SetPT(pt int8) {
 	p.buffer[1] = byte(pt)
 }
 
-func (p *RawPacket) getPT() int8 {
+func (p *RTPPacket) GetPT() int8 {
 	return int8(p.buffer[1])
 }
 
-func (p *RawPacket) setSeq(seq uint16) {
+func (p *RTPPacket) SetSeq(seq uint16) {
 	binary.BigEndian.PutUint16(p.buffer[2:], seq)
 }
 
-func (p *RawPacket) getSeq() uint16 {
+func (p *RTPPacket) GetSeq() uint16 {
 	return binary.BigEndian.Uint16(p.buffer[2:])
 }
 
-func (p *RawPacket) setTimestamp(ts uint32) {
+func (p *RTPPacket) SetTimestamp(ts uint32) {
 	binary.BigEndian.PutUint32(p.buffer[4:], ts)
 }
 
-func (p *RawPacket) getTimestamp() uint32 {
+func (p *RTPPacket) GetTimestamp() uint32 {
 	return binary.BigEndian.Uint32(p.buffer[4:])
 }
 
-func (p *RawPacket) setSSRC(ssrc uint32) {
+func (p *RTPPacket) SetSSRC(ssrc uint32) {
 	binary.BigEndian.PutUint32(p.buffer[8:], ssrc)
 }
 
-func (p *RawPacket) getSSRC() uint32 {
+func (p *RTPPacket) GetSSRC() uint32 {
 	return binary.BigEndian.Uint32(p.buffer[8:])
 }
 
-func (p *RawPacket) setCSRC(csrc []uint32) error {
+func (p *RTPPacket) SetCSRC(csrc []uint32) error {
 	for i := 0; i < len(csrc); i++ {
 		fmt.Printf("CSRC %d = %d \n", i, csrc[i])
 	}
@@ -129,7 +131,7 @@ func (p *RawPacket) setCSRC(csrc []uint32) error {
 	}
 	p.buffer = p.buffer[0 : 12+4*len(csrc)] // truncate to just header + CSRC
 
-	p.setCC(cc)
+	p.SetCC(cc)
 
 	for i := 0; i < len(csrc); i++ {
 		binary.BigEndian.PutUint32(p.buffer[12+4*i:12+4*i+4], csrc[i])
@@ -138,9 +140,9 @@ func (p *RawPacket) setCSRC(csrc []uint32) error {
 	return nil
 }
 
-func (p *RawPacket) getCSRC() []uint32 {
+func (p *RTPPacket) GetCSRC() []uint32 {
 
-	cc := p.getCC()
+	cc := p.GetCC()
 
 	csrc := make([]uint32, cc)
 
@@ -153,24 +155,24 @@ func (p *RawPacket) getCSRC() []uint32 {
 	return csrc
 }
 
-func (p *RawPacket) getHdrExtLen() (extLen uint16) {
+func (p *RTPPacket) GetHdrExtLen() (extLen uint16) {
 	extLen = 0
 
-	if p.getExtBit() {
+	if p.GetExtBit() {
 
-		offset := 12 + 4*uint16(p.getCC())
+		offset := 12 + 4*uint16(p.GetCC())
 		extLen = binary.BigEndian.Uint16(p.buffer[offset+2:])
 	}
 
 	return
 }
 
-func (p *RawPacket) getHdrExt() (extNum uint16, ext []byte) {
+func (p *RTPPacket) GetHdrExt() (extNum uint16, ext []byte) {
 	extNum = 0
 
-	if p.getExtBit() {
+	if p.GetExtBit() {
 
-		offset := 12 + 4*uint16(p.getCC())
+		offset := 12 + 4*uint16(p.GetCC())
 
 		extNum = binary.BigEndian.Uint16(p.buffer[offset:])
 		extLen := binary.BigEndian.Uint16(p.buffer[offset+2:])
@@ -181,12 +183,12 @@ func (p *RawPacket) getHdrExt() (extNum uint16, ext []byte) {
 	return
 }
 
-func (p *RawPacket) setHdrExt(extNum uint16, ext []byte) error {
+func (p *RTPPacket) SetHdrExt(extNum uint16, ext []byte) error {
 	/* Note: must set CC before setting extHdr */
 
-	p.setExtBit(true)
+	p.SetExtBit(true)
 
-	offset := 12 + 4*p.getCC()
+	offset := 12 + 4*p.GetCC()
 
 	if offset+4+len(ext) > cap(p.buffer) {
 		return errors.New("rtp: header extention too large to fit in packet MTU")
@@ -201,10 +203,10 @@ func (p *RawPacket) setHdrExt(extNum uint16, ext []byte) error {
 	return nil
 }
 
-func (p *RawPacket) getPayload() []byte {
-	start := 12 + 4*uint16(p.getCC()) + p.getHdrExtLen()
+func (p *RTPPacket) GetPayload() []byte {
+	start := 12 + 4*uint16(p.GetCC()) + p.GetHdrExtLen()
 	var pad byte = 0
-	if p.getPad() {
+	if p.GetPad() {
 		pad = p.buffer[len(p.buffer)-1]
 	}
 	end := len(p.buffer) - int(pad)
@@ -212,10 +214,10 @@ func (p *RawPacket) getPayload() []byte {
 	return p.buffer[start:end]
 }
 
-func (p *RawPacket) setPayload(payload []byte) error {
+func (p *RTPPacket) SetPayload(payload []byte) error {
 	/* note call this after seting CSRC and header extentions */
 
-	offset := 12 + 4*p.getCC() + int(p.getHdrExtLen())
+	offset := 12 + 4*p.GetCC() + int(p.GetHdrExtLen())
 	packetLen := offset + (len(payload))
 	if packetLen > cap(p.buffer) {
 
@@ -228,7 +230,7 @@ func (p *RawPacket) setPayload(payload []byte) error {
 	return nil
 }
 
-func (p *RawPacket) padTo(sizeMult int) error {
+func (p *RTPPacket) SetPadding(sizeMult int) error {
 	packetLen := len(p.buffer)
 	pad := sizeMult - packetLen%sizeMult
 
@@ -243,15 +245,15 @@ func (p *RawPacket) padTo(sizeMult int) error {
 	return nil
 }
 
-func createPacket(payload []byte, payloadType int8, seq uint16, ts uint32, ssrc uint32) *RawPacket {
-	p := new(RawPacket)
+func NewRTPPacket(payload []byte, payloadType int8, seq uint16, ts uint32, ssrc uint32) *RTPPacket {
+	p := new(RTPPacket)
 	p.buffer = make([]byte, 12 /*RTP Header size*/ +len(payload), MTU)
 	p.buffer[0] = 128
 
-	p.setPT(payloadType)
-	p.setSeq(seq)
-	p.setSSRC(ssrc)
-	p.setTimestamp(ts)
+	p.SetPT(payloadType)
+	p.SetSeq(seq)
+	p.SetSSRC(ssrc)
+	p.SetTimestamp(ts)
 
 	copy(p.buffer[12:], payload)
 
