@@ -1,16 +1,23 @@
 package rtp
 
 import (
-//"errors"
-//	"fmt"
+	"errors"
+	//	"fmt"
 )
 
 type RTPSession struct {
 	extNameMap map[string]int
 }
 
-func (s *RTPSession) AddExtMap(num int, name string) {
+func (s *RTPSession) SetExtMap(num int, name string) error {
+
+	if num > 14 {
+		return errors.New("rtp SetExtMap 2 byte headers are not implemented")
+	}
+
 	s.extNameMap[name] = num
+
+	return nil
 }
 
 func NewRTPSession() *RTPSession {

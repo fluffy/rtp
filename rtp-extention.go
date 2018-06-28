@@ -13,7 +13,7 @@ import (
 
 func (p *RTPPacket) SetGeneralExt(num int, data []byte) error {
 	// Set a RFC5285 style General Extention
-	// TODO - BUG - can only set a single extention
+	// TODO - currently can only set a single extention
 	if (num < 1) || (num == 15) || (num > 255) {
 		return errors.New("rtp: bad extention number for SetGeneralExt")
 	}
@@ -50,7 +50,7 @@ func (p *RTPPacket) SetGeneralExt(num int, data []byte) error {
 	} else {
 		// using 2 byte header
 		// TODO
-		return errors.New("rtp SetGeneralExt long header not implemented 1")
+		return errors.New("rtp SetGeneralExt long header not implemented")
 	}
 
 	return nil
@@ -61,23 +61,38 @@ func (p *RTPPacket) GetGeneralExt(num int) []byte {
 	genExtNum, genExtData := p.GetHdrExt()
 
 	if genExtNum == 0xBEDE {
-		if len(genExtData) < 1 {
-			return nil
-		}
-		extNum := int(genExtData[0] >> 4)
-		extLen := int((genExtData[0] & 0x0F) + 1)
+		for {
+			if len(genExtData) == 0 {
+				return nil
+			}
+			extNum := int(genExtData[0] >> 4)
+			extLen := int((genExtData[0] & 0x0F) + 1)
 
-		if len(genExtData) < extLen+1 {
-			return nil
-		}
+			if len(genExtData) < extLen+1 {
+				return nil
+			}
 
-		if extNum == num {
-			data := genExtData[1 : extLen+1]
-			return data
+			if extNum == 0 { //this is the pad indicator
+				genExtData = genExtData[1:len(genExtData)]
+				continue
+			}
+
+			if extNum == 15 { // stop processing any data after this
+				return nil
+			}
+
+			//fmt.Printf( "GenExt found num=%d len=%d data=0x%x\n", extNum,extLen, genExtData[1 : extLen+1] )
+
+			if extNum == num {
+				data := genExtData[1 : extLen+1]
+				return data
+			}
+
+			genExtData = genExtData[extLen+1 : len(genExtData)] // move to next extention
 		}
 	}
 	if genExtNum&0xFFF0 == 0x1000 {
-		// TODO - 2byte extentiong
+		// TODO - 2byte extention
 	}
 
 	// Gen Ext not found
@@ -98,7 +113,7 @@ func (p *RTPPacket) SetExtClientVolume(s *RTPSession, vad bool, dBov int8) error
 		return err
 	} else if extNum <= 255 {
 		// TODO
-		return errors.New("rtp SetGeneralExt long header not implemented 1")
+		return errors.New("rtp SetGeneralExt long header not implemented")
 	}
 
 	return errors.New("rtp: extention number out or range in SetExtClientVolume")
