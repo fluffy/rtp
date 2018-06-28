@@ -1,5 +1,9 @@
 package rtp
 
+/*
+EKT defined in https://tools.ietf.org/html/draft-ietf-perc-srtp-ekt-diet-07
+*/
+
 import (
 	"crypto/rand"
 	"encoding/binary"
@@ -17,9 +21,20 @@ type RTPSession struct {
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 
 	// TODO - detect and remove EKT
+	ektCmd := packetData[len(packetData)-1]
+	ektLen := 0
+	if ektCmd == 0 {
+		ektLen = 1
+	} else if ektCmd == 0x02 {
+		ektLen = int(binary.BigEndian.Uint16(packetData[len(packetData)-3:]))
+	} else {
+		// bad EKT
+		return nil, errors.New("rtp: invalid EKT field")
+	}
 
 	p := new(RTPPacket)
-	p.buffer = packetData
+	p.buffer = packetData[0 : len(packetData)-ektLen]
+	p.ekt = packetData[len(packetData)-ektLen : len(packetData)]
 
 	cipherKeySize := 128 / 8
 	cipherKeyEnc := s.kdf.Derive(Ke, uint64(s.roc), s.seq, cipherKeySize)
@@ -32,6 +47,8 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 	}
 
 	// remove the OHB if doubele RTP ( but not RTCP )
+	ohbLen := p.GetOHBLen()
+	p.buffer = p.buffer[0 : len(p.buffer)-ohbLen]
 
 	return p, nil
 }
@@ -64,7 +81,14 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	}
 
 	// add back EKT
-	// TODO
+	rtpLen := len(p.buffer)
+	ektLen := len(p.ekt)
+
+	if rtpLen+ektLen > cap(p.buffer) {
+		return nil, errors.New("rtp: EKT too large to fit in packet MTU")
+	}
+	p.buffer = p.buffer[0 : rtpLen+ektLen]
+	copy(p.buffer[rtpLen:rtpLen+ektLen], p.ekt)
 
 	return p.buffer, nil
 }

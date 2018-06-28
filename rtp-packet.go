@@ -40,7 +40,8 @@ const (
 )
 
 type RTPPacket struct {
-	buffer []byte // contains full packet header, ext, and payload in netwrok byte order
+	buffer []byte // contains full RTP packet header, and payload in netwrok byte order
+	ekt    []byte //  contain
 }
 
 func (p *RTPPacket) getCSRCOffset() int {
@@ -302,6 +303,23 @@ func (p *RTPPacket) SetPadding(sizeMult int) error {
 	}
 
 	return nil
+}
+
+func (p *RTPPacket) GetOHBLen() int {
+	payload := p.GetPayload()
+	offset := len(payload) - 1
+
+	config := payload[offset]
+
+	ohbSize := 1
+	if config&0x01 > 0 {
+		ohbSize += 2
+	}
+	if config&0x02 > 0 {
+		ohbSize += 1
+	}
+
+	return ohbSize
 }
 
 func (p *RTPPacket) GetOHB() (pt int8, seq uint16, m bool) {
