@@ -7,6 +7,25 @@ import (
 
 type RTPSession struct {
 	extNameMap map[string]int
+	masterKey []byte
+	masterSalt []byte
+	kdf KDF
+}
+
+func  (s *RTPSession) Decode( packetData []byte ) (*RTPPacket, error) {
+	return nil,nil
+}
+
+func  (s *RTPSession) Encode( p *RTPPacket ) ([]byte,error) {
+	return nil,nil
+}
+
+func  (s *RTPSession) NewRtcpRR() (*RTPPacket, error) {
+	return nil,nil
+}
+
+func (s *RTPSession) SetSRTPKey(masterKey []byte, masterSalt []byte) error {
+	return nil
 }
 
 func (s *RTPSession) SetExtMap(num int, name string) error {
