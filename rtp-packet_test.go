@@ -77,17 +77,53 @@ func TestConstructGet(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
+	var err error
 	p := NewRTPPacket([]byte{1, 2, 3, 4, 5}, 8 /*pt*/, 22 /*seq*/, 33 /*ts*/, 44 /*ssrc*/)
 
-	p.SetMarker(true)
-	p.SetPT(9)
-	p.SetSeq(122)
-	p.SetTimestamp(133)
-	p.SetSSRC(144)
-	p.SetCSRC([]uint32{66, 67})
-	p.SetHdrExt(77, []byte{99, 11, 12, 14, 10, 11, 12, 14})
-	p.SetPayload([]byte{200, 11, 12, 13})
-	p.SetPadding(48)
+	err = p.SetMarker(true)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetPT(9)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetSeq(122)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetTimestamp(133)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetSSRC(144)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetCSRC([]uint32{66, 67})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetHdrExt(77, []byte{99, 11, 12, 14})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetPayload([]byte{200, 11, 12, 13})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = p.SetPadding(48)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 
 	pad := p.GetPad()
 	if pad == false {
@@ -140,7 +176,7 @@ func TestSet(t *testing.T) {
 	if extNum != 77 {
 		t.Errorf("extNum  is wrong")
 	}
-	if len(ext) != 8 {
+	if len(ext) != 4 {
 		t.Errorf("HeaderExt data length is wrong")
 	} else if ext[0] != 99 {
 		t.Errorf("HeaderExt data  is wrong. Got %d", ext[0])
@@ -162,7 +198,10 @@ func TestSet(t *testing.T) {
 func TestOHB(t *testing.T) {
 	p := NewRTPPacket([]byte{0xa1, 0xa2, 0xa3, 0xa4}, 2 /*pt*/, 3 /*seq*/, 4 /*ts*/, 5 /*ssrc*/)
 
-	p.SetOHB(6, 7, true)
+	err := p.SetOHB(6, 7, true)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 
 	pt, seq, m := p.GetOHB()
 

@@ -8,13 +8,14 @@ Client To Mixer volume level in https://tools.ietf.org/html/rfc6464
 
 import (
 	"errors"
-	//"fmt"
+	"fmt"
 )
 
 func (p *RTPPacket) SetGeneralExt(num int, data []byte) error {
 	// Set a RFC5285 style General Extention
+	// TODO - BUG - can only set a single extention
 	if (num < 1) || (num == 15) || (num > 255) {
-		return errors.New("rtp: bad number for SetGeneralExt")
+		return errors.New("rtp: bad extention number for SetGeneralExt")
 	}
 
 	if num < 14 {
@@ -28,17 +29,28 @@ func (p *RTPPacket) SetGeneralExt(num int, data []byte) error {
 		lenValue := len(data) - 1
 		header := (num << 4) + lenValue
 
-		extData := make([]byte, len(data)+1)
+		nonPadLen := len(data) + 1
+		pad := 0
+		if nonPadLen%4 != 0 {
+			pad = 4 - nonPadLen%4
+		}
+
+		extData := make([]byte, nonPadLen+pad)
+		copy(extData[len(extData)-4:], []byte{0, 0, 0, 0}) // TODO - is this needed or does make do this
 		extData[0] = byte(header)
 		copy(extData[1:], data)
 		extNum := uint16(0xBEDE)
 
-		//fmt.Printf( "write gen ext num=%x data=%x \n",extNum, extData )
-
-		p.SetHdrExt(extNum, extData)
+		err := p.SetHdrExt(extNum, extData)
+		if err != nil {
+			fmt.Printf("rtp::SetGeneralExt call to SetHdrExt got error %s \n", err.Error())
+			return err
+		}
 
 	} else {
 		// using 2 byte header
+		// TODO
+		return errors.New("rtp SetGeneralExt long header not implemented 1")
 	}
 
 	return nil
@@ -48,16 +60,12 @@ func (p *RTPPacket) GetGeneralExt(num int) []byte {
 	// Get a RFC5285 style General Extention
 	genExtNum, genExtData := p.GetHdrExt()
 
-	//fmt.Printf( "read HDR ext num=0x%X data=0x%X \n",genExtNum, genExtData )
-
 	if genExtNum == 0xBEDE {
 		if len(genExtData) < 1 {
 			return nil
 		}
 		extNum := int(genExtData[0] >> 4)
 		extLen := int((genExtData[0] & 0x0F) + 1)
-
-		//fmt.Printf( "read gen ext num=%x len=%x \n",extNum, extLen )
 
 		if len(genExtData) < extLen+1 {
 			return nil
@@ -67,6 +75,9 @@ func (p *RTPPacket) GetGeneralExt(num int) []byte {
 			data := genExtData[1 : extLen+1]
 			return data
 		}
+	}
+	if genExtNum&0xFFF0 == 0x1000 {
+		// TODO - 2byte extentiong
 	}
 
 	// Gen Ext not found
@@ -86,6 +97,8 @@ func (p *RTPPacket) SetExtClientVolume(s *RTPSession, vad bool, dBov int8) error
 		err := p.SetGeneralExt(extNum, data)
 		return err
 	} else if extNum <= 255 {
+		// TODO
+		return errors.New("rtp SetGeneralExt long header not implemented 1")
 	}
 
 	return errors.New("rtp: extention number out or range in SetExtClientVolume")
@@ -104,6 +117,9 @@ func (p *RTPPacket) GetExtClientVolume(s *RTPSession) (vad bool, dBov int8) {
 			vad = data[0]&0x7F > 0
 			return
 		}
+	} else if extNum <= 255 {
+		// TODO
+
 	}
 
 	return false, 0
