@@ -20,7 +20,6 @@ type RTPSession struct {
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 
-	// TODO - detect and remove EKT
 	ektCmd := packetData[len(packetData)-1]
 	ektLen := 0
 	if ektCmd == 0 {
@@ -46,7 +45,7 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 		return nil, err
 	}
 
-	// remove the OHB if doubele RTP ( but not RTCP )
+	// remove the OHB if double RTP ( but not RTCP )
 	ohbLen := p.GetOHBLen()
 	p.buffer = p.buffer[0 : len(p.buffer)-ohbLen]
 
