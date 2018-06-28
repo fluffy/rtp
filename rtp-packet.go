@@ -23,6 +23,8 @@ https://datatracker.ietf.org/doc/draft-ietf-perc-double/
 
 Note when creating packets must set CSRC before setting Header extentions before setting payload before setting pad.
 
+AES-GCM for SRTP from https://datatracker.ietf.org/doc/rfc7714/
+
 */
 
 import (

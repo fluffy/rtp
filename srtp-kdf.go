@@ -33,6 +33,8 @@ func NewKDF(masterKey, masterSalt []byte) (*KDF, error) {
 	}, nil
 }
 
+// TODO - why is roc 64 bits not 32
+
 func (kdf KDF) Derive(label byte, roc uint64, seq uint16, size int) []byte {
 	indexVal := (roc << 16) + uint64(seq)
 	index := make([]byte, 6)
