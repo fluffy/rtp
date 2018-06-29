@@ -10,6 +10,7 @@ import (
 func TestEncode(t *testing.T) {
 
 	s := NewRTPSession()
+	s.SetCipher(HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM, true)
 
 	err := s.SetSRTPKey([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14})
 	if err != nil {
@@ -38,6 +39,7 @@ func TestDecode(t *testing.T) {
 	data, _ := hex.DecodeString("8008002a000000210000002c3cff1d72897e475243d2e3c93a648938e0589e2f2b00")
 
 	s := NewRTPSession()
+	s.SetCipher(HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM, true)
 
 	err := s.SetSRTPKey([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14})
 	if err != nil {
