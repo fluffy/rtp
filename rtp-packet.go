@@ -509,6 +509,8 @@ func NewRTPPacket(payload []byte, payloadType int8, seq uint16, ts uint32, ssrc 
 	p := new(RTPPacket)
 	p.buffer = make([]byte, 12 /*RTP Header size*/ +len(payload), MTU)
 	p.buffer[0] = 128
+	p.ekt = make([]byte, 1, 256/8+4)
+	p.ekt[0] = 0 // this is short EKT heaader
 
 	err := p.SetPT(payloadType)
 	if err != nil {

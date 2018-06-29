@@ -19,7 +19,6 @@ type RTPSession struct {
 }
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
-
 	ektCmd := packetData[len(packetData)-1]
 	ektLen := 0
 	if ektCmd == 0 {
@@ -35,10 +34,12 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 	p.buffer = packetData[0 : len(packetData)-ektLen]
 	p.ekt = packetData[len(packetData)-ektLen : len(packetData)]
 
+	seq := p.GetSeq()
+
 	cipherKeySize := 128 / 8
-	cipherKeyEnc := s.kdf.Derive(Ke, uint64(s.roc), s.seq, cipherKeySize)
+	cipherKeyEnc := s.kdf.Derive(Ke, uint64(s.roc), seq, cipherKeySize)
 	//cipherKeyAuth := s.kdf.Derive(Ka, s.roc, s.seq, cipherKeySize) // not used for GCM
-	cipherSalt := s.kdf.Derive(Ks, uint64(s.roc), s.seq, cipherKeySize)
+	cipherSalt := s.kdf.Derive(Ks, uint64(s.roc), seq, cipherKeySize)
 
 	err := p.DecryptGCM(s.roc, cipherKeyEnc, cipherSalt)
 	if err != nil {
@@ -72,6 +73,9 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	cipherSalt := s.kdf.Derive(Ks, uint64(s.roc), s.seq, cipherKeySize)
 
 	err = p.EncryptGCM(s.roc, cipherKeyEnc, cipherSalt)
+	if err != nil {
+		return nil, err
+	}
 
 	// increment seq
 	s.seq++
