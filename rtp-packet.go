@@ -437,18 +437,20 @@ func (p *RTPPacket) String() string {
 // +--+--+--+--+--+--+--+--+--+--+--+--+
 func (p *RTPPacket) gcmIV(roc uint32, salt []byte) []byte {
 	iv := make([]byte, 12)
-	copy(iv, salt)
+	iv[2] = p.buffer[8] // SSRC
+	iv[3] = p.buffer[9]
+	iv[4] = p.buffer[10]
+	iv[5] = p.buffer[11]
+	iv[6] = byte(roc >> 24) // ROC
+	iv[7] = byte(roc >> 16)
+	iv[8] = byte(roc >> 8)
+	iv[9] = byte(roc >> 0)
+	iv[10] = p.buffer[2] // SEQ
+	iv[11] = p.buffer[3]
 
-	iv[2] ^= p.buffer[8] // SSRC
-	iv[3] ^= p.buffer[9]
-	iv[4] ^= p.buffer[10]
-	iv[5] ^= p.buffer[11]
-	iv[6] ^= byte(roc >> 24) // ROC
-	iv[7] ^= byte(roc >> 16)
-	iv[8] ^= byte(roc >> 8)
-	iv[9] ^= byte(roc >> 0)
-	iv[10] ^= p.buffer[2] // SEQ
-	iv[11] ^= p.buffer[3]
+	for i := range iv {
+		iv[i] ^= salt[i]
+	}
 
 	return iv
 }

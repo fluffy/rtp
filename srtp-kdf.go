@@ -1,6 +1,7 @@
 package rtp
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
@@ -18,8 +19,9 @@ type KDF struct {
 }
 
 func NewKDF(masterKey, masterSalt []byte) (*KDF, error) {
-	if len(masterSalt) != 14 {
-		return nil, fmt.Errorf("SRTP master salt must be 14 bytes long")
+	if len(masterSalt) < 14 {
+		zero := bytes.Repeat([]byte{0x00}, 14-len(masterSalt))
+		masterSalt = append(masterSalt, zero...)
 	}
 
 	block, err := aes.NewCipher(masterKey)
@@ -50,7 +52,9 @@ func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
 		x[start+i] ^= keyID[i]
 	}
 
-	iv := append(x, []byte{0x00, 0x00}...)
+	zero := bytes.Repeat([]byte{0x00}, kdf.block.BlockSize()-len(x))
+	iv := append(x, zero...)
+
 	stream := cipher.NewCTR(kdf.block, iv)
 
 	out := make([]byte, size)
@@ -60,4 +64,22 @@ func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
 
 	stream.XORKeyStream(out, out)
 	return out
+}
+
+func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
+	var keySize, saltSize int
+	switch cipher {
+	case SRTP_AEAD_AES_128_GCM:
+		keySize = 16
+		saltSize = 12
+	case SRTP_AEAD_AES_256_GCM:
+		keySize = 32
+		saltSize = 12
+	default:
+		return nil, nil, fmt.Errorf("Unsupported cipher: %04x", cipher)
+	}
+
+	key := kdf.Derive(Ke, 0, 0, keySize)
+	salt := kdf.Derive(Ks, 0, 0, saltSize)
+	return key, salt, nil
 }

@@ -15,30 +15,26 @@ import (
 	"fmt"
 )
 
-type CipherID int
+type CipherID uint16
 
 const (
 	// From https://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml
-	//DOUBLE_AEAD_AES_128_GCM_AEAD_AES_128_GCM = 9
-	HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM CipherID = -9
+	NONE                                     CipherID = 0x0000
+	SRTP_AEAD_AES_128_GCM                    CipherID = 0x0007
+	SRTP_AEAD_AES_256_GCM                    CipherID = 0x0008
+	DOUBLE_AEAD_AES_128_GCM_AEAD_AES_128_GCM CipherID = 0x0009
+	DOUBLE_AEAD_AES_256_GCM_AEAD_AES_256_GCM CipherID = 0x000a
 )
 
 type RTPSession struct {
 	extNameMap map[string]int
-	kdf        *KDF
+	key        []byte
+	salt       []byte
 	seq        uint16
 	roc        uint32
 
-	cipherID CipherID
-	useEKT   bool
-}
-
-func (s *RTPSession) SetCipher(cipher CipherID, useEKT bool) error {
-
-	s.useEKT = useEKT
-	s.cipherID = cipher
-
-	return nil
+	cipher CipherID
+	useEKT bool
 }
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
@@ -52,6 +48,7 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 			ektLen = 1
 		} else if ektCmd == 0x02 {
 			ektLen = int(binary.BigEndian.Uint16(packetData[len(packetData)-3:]))
+			ektLen += 2 + 2 + 1 // SPI + len + type
 		} else {
 			// bad EKT
 			return nil, errors.New("rtp: invalid EKT field")
@@ -61,15 +58,8 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 		p.ekt = packetData[len(packetData)-ektLen : len(packetData)]
 	}
 
-	seq := p.GetSeq()
-
-	if s.cipherID == HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM {
-		cipherKeySize := 128 / 8
-		cipherKeyEnc := s.kdf.Derive(Ke, s.roc, seq, cipherKeySize)
-		//cipherKeyAuth := s.kdf.Derive(Ka, s.roc, s.seq, cipherKeySize) // not used for GCM
-		cipherSalt := s.kdf.Derive(Ks, s.roc, seq, cipherKeySize)
-
-		err := p.DecryptGCM(s.roc, cipherKeyEnc, cipherSalt)
+	if s.cipher != NONE {
+		err := p.DecryptGCM(s.roc, s.key, s.salt)
 		if err != nil {
 			return nil, err
 		}
@@ -85,9 +75,7 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 }
 
 func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
-
-	if s.cipherID == HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM {
-
+	if s.cipher != NONE {
 		// Form the OHB with old seq
 		err := p.SetOHB(p.GetPT(), p.GetSeq(), p.GetMaker())
 		if err != nil {
@@ -101,12 +89,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 		}
 
 		// encrypt
-		cipherKeySize := 128 / 8
-		cipherKeyEnc := s.kdf.Derive(Ke, s.roc, s.seq, cipherKeySize)
-		//cipherKeyAuth := s.kdf.Derive(Ka, s.roc, s.seq, cipherKeySize) // not used for GCM
-		cipherSalt := s.kdf.Derive(Ks, s.roc, s.seq, cipherKeySize)
-
-		err = p.EncryptGCM(s.roc, cipherKeyEnc, cipherSalt)
+		err = p.EncryptGCM(s.roc, s.key, s.salt)
 		if err != nil {
 			return nil, err
 		}
@@ -139,15 +122,21 @@ func (s *RTPSession) NewRtcpRR() (*RTPPacket, error) {
 	return nil, nil
 }
 
-func (s *RTPSession) SetSRTPKey(masterKey []byte, masterSalt []byte) error {
-
-	var err error
-
-	s.kdf, err = NewKDF(masterKey, masterSalt)
+func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt []byte) error {
+	kdf, err := NewKDF(masterKey, masterSalt)
 	if err != nil {
 		return err
 	}
 
+	key, salt, err := kdf.DeriveForStream(cipher)
+	if err != nil {
+		return err
+	}
+
+	s.key = key
+	s.salt = salt
+	s.cipher = cipher
+	s.useEKT = useEKT
 	return nil
 }
 
@@ -165,7 +154,6 @@ func (s *RTPSession) SetExtMap(num int, name string) error {
 func NewRTPSession() *RTPSession {
 	s := new(RTPSession)
 	s.extNameMap = make(map[string]int)
-	s.kdf = nil
 
 	randBytes := make([]byte, 2)
 	_, err := rand.Read(randBytes)

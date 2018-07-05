@@ -10,9 +10,11 @@ import (
 func TestEncode(t *testing.T) {
 
 	s := NewRTPSession()
-	s.SetCipher(HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM, true)
 
-	err := s.SetSRTPKey([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14})
+	cipher := SRTP_AEAD_AES_128_GCM
+	key := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	salt := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+	err := s.SetSRTP(cipher, true, key, salt)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -29,19 +31,23 @@ func TestEncode(t *testing.T) {
 
 	fmt.Printf("Encode result = 0x%x \n", data)
 
-	golden, _ := hex.DecodeString("8008002a000000210000002c3cff1d72897e475243d2e3c93a648938e0589e2f2b00")
+	golden, _ := hex.DecodeString("8008002a000000210000002c520253e5c904fd04ac02aea781b9531c29e45a5fae00")
 	if !bytes.Equal(data, golden) {
+		t.Logf("golden: %x", golden)
+		t.Logf("  data: %x", data)
 		t.Fatalf("rtp sestion encoding failed")
 	}
 }
 
 func TestDecode(t *testing.T) {
-	data, _ := hex.DecodeString("8008002a000000210000002c3cff1d72897e475243d2e3c93a648938e0589e2f2b00")
+	data, _ := hex.DecodeString("8008002a000000210000002c520253e5c904fd04ac02aea781b9531c29e45a5fae00")
 
 	s := NewRTPSession()
-	s.SetCipher(HALF_AEAD_AES_128_GCM_AEAD_AES_128_GCM, true)
 
-	err := s.SetSRTPKey([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14})
+	cipher := SRTP_AEAD_AES_128_GCM
+	key := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	salt := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+	err := s.SetSRTP(cipher, true, key, salt)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
