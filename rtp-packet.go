@@ -489,7 +489,16 @@ func (p *RTPPacket) EncryptGCM(roc uint32, key, salt []byte) error {
 
 	aad := p.buffer[0:start]
 	pt := p.buffer[start:end]
+
+	fmt.Printf("===== Encrypt =====\n")
+	fmt.Printf("key: %x\n", key)
+	fmt.Printf("iv:  %x\n", iv)
+	fmt.Printf("aad: %x\n", aad)
+	fmt.Printf("pt:  %x\n", pt)
+
 	gcm.Seal(p.buffer[start:start], iv, pt, aad)
+
+	fmt.Printf("ct:  %x\n", p.buffer)
 	return nil
 }
 
@@ -512,10 +521,18 @@ func (p *RTPPacket) DecryptGCM(roc uint32, key, salt []byte) error {
 	aad := p.buffer[0:start]
 	ct := p.buffer[start:end]
 
+	fmt.Printf("===== Decrypt =====\n")
+	fmt.Printf("key: %x\n", key)
+	fmt.Printf("iv:  %x\n", iv)
+	fmt.Printf("aad: %x\n", aad)
+	fmt.Printf("ct:  %x\n", ct)
+
 	_, err = gcm.Open(p.buffer[start:start], iv, ct, aad)
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("pt:  %x\n", p.buffer)
 
 	p.buffer = p.buffer[:len(p.buffer)-gcm.Overhead()]
 	return nil

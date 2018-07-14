@@ -53,11 +53,11 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 			// bad EKT
 			return nil, errors.New("rtp: invalid EKT field")
 		}
-                if ( ektLen >=  len(packetData) ) {
-                	// bad EKT
+		if ektLen >= len(packetData) {
+			// bad EKT
 			return nil, errors.New("rtp: invalid EKT field - too big")
-                }
-                
+		}
+
 		p.buffer = packetData[0 : len(packetData)-ektLen]
 		p.ekt = packetData[len(packetData)-ektLen : len(packetData)]
 	}
@@ -136,6 +136,8 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("SRTP encryption key: %x\n", key)
 
 	s.key = key
 	s.salt = salt
