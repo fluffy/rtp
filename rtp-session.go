@@ -53,7 +53,11 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 			// bad EKT
 			return nil, errors.New("rtp: invalid EKT field")
 		}
-
+                if ( ektLen >=  len(packetData) ) {
+                	// bad EKT
+			return nil, errors.New("rtp: invalid EKT field - too big")
+                }
+                
 		p.buffer = packetData[0 : len(packetData)-ektLen]
 		p.ekt = packetData[len(packetData)-ektLen : len(packetData)]
 	}
