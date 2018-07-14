@@ -44,6 +44,17 @@ type RTPPacket struct {
 	ekt    []byte //  contain
 }
 
+func (p *RTPPacket) Clone() *RTPPacket {
+	p2 := &RTPPacket{
+		buffer: make([]byte, len(p.buffer)),
+		ekt:    make([]byte, len(p.ekt)),
+	}
+
+	copy(p2.buffer, p.buffer)
+	copy(p2.ekt, p.ekt)
+	return p2
+}
+
 func (p *RTPPacket) getCSRCOffset() int {
 	return 12
 }
