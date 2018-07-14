@@ -306,7 +306,8 @@ func (p *RTPPacket) SetPadding(sizeMult int) error {
 
 	if pad > 0 {
 		if packetLen+pad > cap(p.buffer) {
-			return errors.New("rtp: padding too large to fit in packet MTU")
+			grow := packetLen + pad - cap(p.buffer)
+			p.buffer = append(p.buffer, make([]byte, grow)...)
 		}
 		p.buffer = p.buffer[0 : packetLen+pad] // extend buffer to packet length
 		p.buffer[packetLen+pad-1] = byte(pad)
@@ -388,7 +389,8 @@ func (p *RTPPacket) SetOHB(pt int8, seq uint16, m bool) error {
 
 	packetLen := len(p.buffer) + ohbLen
 	if packetLen > cap(p.buffer) {
-		return errors.New("rtp: PHB too large to fit in packet MTU")
+		grow := packetLen - cap(p.buffer)
+		p.buffer = append(p.buffer, make([]byte, grow)...)
 	}
 	p.buffer = p.buffer[0:packetLen] // expand buffer to packet length
 	offset := packetLen - 1
@@ -509,6 +511,7 @@ func (p *RTPPacket) DecryptGCM(roc uint32, key, salt []byte) error {
 
 	aad := p.buffer[0:start]
 	ct := p.buffer[start:end]
+
 	_, err = gcm.Open(p.buffer[start:start], iv, ct, aad)
 	if err != nil {
 		return err
