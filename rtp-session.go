@@ -81,13 +81,17 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	if s.cipher != NONE {
 		// Form the OHB with old seq
-		err := p.SetOHB(p.GetPT(), p.GetSeq(), p.GetMaker())
+		origPt := p.GetPT()
+		origSeq := p.GetSeq()
+		origMarker := p.GetMarker()
+
+		// Set the seq number
+		err := p.SetSeq(s.seq)
 		if err != nil {
 			return nil, err
 		}
 
-		// Set the seq number
-		err = p.SetSeq(s.seq)
+		err = p.SetOHB(origPt,origSeq,origMarker)
 		if err != nil {
 			return nil, err
 		}

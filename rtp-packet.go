@@ -129,7 +129,7 @@ func (p *RTPPacket) SetMarker(marker bool) error {
 	return nil
 }
 
-func (p *RTPPacket) GetMaker() bool {
+func (p *RTPPacket) GetMarker() bool {
 	return (p.buffer[1] & 0xF0) > 0
 }
 
@@ -337,7 +337,7 @@ func (p *RTPPacket) GetOHBLen() int {
 func (p *RTPPacket) GetOHB() (pt int8, seq uint16, m bool) {
 	pt = p.GetPT()
 	seq = p.GetSeq()
-	m = p.GetMaker()
+	m = p.GetMarker()
 
 	payload := p.GetPayload()
 	offset := len(payload) - 1
@@ -365,7 +365,7 @@ func (p *RTPPacket) GetOHB() (pt int8, seq uint16, m bool) {
 func (p *RTPPacket) SetOHB(pt int8, seq uint16, m bool) error {
 	currentPt := p.GetPT()
 	currentSeq := p.GetSeq()
-	currentM := p.GetMaker()
+	currentM := p.GetMarker()
 
 	var config byte = 0
 	ohbLen := 1
@@ -483,6 +483,10 @@ func (p *RTPPacket) EncryptGCM(roc uint32, key, salt []byte) error {
 
 	start := p.getPayloadOffset()
 	end := len(p.buffer)
+
+	if ( start >= end ) {
+		return errors.New("rtp: invalid payload size")
+	}
 
 	tag := make([]byte, gcm.Overhead())
 	p.buffer = append(p.buffer, tag...)
