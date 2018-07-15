@@ -31,7 +31,7 @@ func TestEncode(t *testing.T) {
 
 	fmt.Printf("Encode result = 0x%x \n", data)
 
-	golden, _ := hex.DecodeString("8008002a000000210000002c520253e5c904fd04ac02aea781b9531c29e45a5fae00")
+	golden, _ := hex.DecodeString("8008002a000000210000002c520253e5c9581b3035417389cedb3889a5cba91b25e94500")
 	if !bytes.Equal(data, golden) {
 		t.Logf("golden: %x", golden)
 		t.Logf("  data: %x", data)
