@@ -319,6 +319,10 @@ func (p *RTPPacket) SetPadding(sizeMult int) error {
 
 func (p *RTPPacket) GetOHBLen() int {
 	payload := p.GetPayload()
+	if len(payload) == 0 {
+		return 0
+	}
+
 	offset := len(payload) - 1
 
 	config := payload[offset]
@@ -484,7 +488,7 @@ func (p *RTPPacket) EncryptGCM(roc uint32, key, salt []byte) error {
 	start := p.getPayloadOffset()
 	end := len(p.buffer)
 
-	if ( start >= end ) {
+	if start >= end {
 		return errors.New("rtp: invalid payload size")
 	}
 
