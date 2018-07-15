@@ -86,12 +86,14 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 		origMarker := p.GetMarker()
 
 		// Set the seq number
-		err := p.SetSeq(s.seq)
-		if err != nil {
-			return nil, err
-		}
+		/*
+			err := p.SetSeq(s.seq)
+			if err != nil {
+				return nil, err
+			}
+		*/
 
-		err = p.SetOHB(origPt,origSeq,origMarker)
+		err := p.SetOHB(origPt, origSeq, origMarker)
 		if err != nil {
 			return nil, err
 		}
