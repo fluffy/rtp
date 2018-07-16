@@ -17,6 +17,8 @@ import (
 
 type CipherID uint16
 
+type Ssrc uint32
+
 const (
 	// From https://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml
 	NONE                                     CipherID = 0x0000
@@ -35,6 +37,7 @@ type RTPSession struct {
 
 	cipher CipherID
 	useEKT bool
+	rewriteSeq bool
 }
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
@@ -86,12 +89,12 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 		origMarker := p.GetMarker()
 
 		// Set the seq number
-		/*
+		if (  s.rewriteSeq ) {
 			err := p.SetSeq(s.seq)
 			if err != nil {
 				return nil, err
 			}
-		*/
+		}	
 
 		err := p.SetOHB(origPt, origSeq, origMarker)
 		if err != nil {
@@ -107,12 +110,14 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 		return nil, errors.New("rtp: cipher algorithm not supported")
 	}
 
-	// increment seq
-	s.seq++
-	if s.seq == 0 {
-		s.roc++
+	if (  s.rewriteSeq ) {
+		// increment seq
+		s.seq++
+		if s.seq == 0 {
+			s.roc++
+		}
 	}
-
+	
 	if s.useEKT {
 		// add back EKT
 		rtpLen := len(p.buffer)
@@ -163,7 +168,7 @@ func (s *RTPSession) SetExtMap(num int, name string) error {
 	return nil
 }
 
-func NewRTPSession() *RTPSession {
+func NewRTPSession( rewriteSeq bool ) *RTPSession {
 	s := new(RTPSession)
 	s.extNameMap = make(map[string]int)
 
@@ -176,5 +181,7 @@ func NewRTPSession() *RTPSession {
 	s.seq = binary.BigEndian.Uint16(randBytes) & 0x7FFF
 	s.roc = 0
 
+	s.rewriteSeq = rewriteSeq;
+	
 	return s
 }

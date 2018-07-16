@@ -9,7 +9,7 @@ import (
 
 func TestEncode(t *testing.T) {
 
-	s := NewRTPSession()
+	s := NewRTPSession( true )
 
 	cipher := SRTP_AEAD_AES_128_GCM
 	key := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
@@ -42,7 +42,7 @@ func TestEncode(t *testing.T) {
 func TestDecode(t *testing.T) {
 	data, _ := hex.DecodeString("8008002a000000210000002c520253e5c904fd04ac02aea781b9531c29e45a5fae00")
 
-	s := NewRTPSession()
+	s := NewRTPSession( true )
 
 	cipher := SRTP_AEAD_AES_128_GCM
 	key := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}

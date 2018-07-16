@@ -113,7 +113,7 @@ func TestClientVolume(t *testing.T) {
 
 	if true {
 
-		s := NewRTPSession()
+		s := NewRTPSession( true )
 		err := s.SetExtMap(11, "urn:ietf:params:rtp-hdrext:ssrc-audio-level")
 		if err != nil {
 			t.Errorf(err.Error())
