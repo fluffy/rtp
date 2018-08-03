@@ -147,6 +147,20 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	return p.buffer, nil
 }
 
+func (s* RTPSession) EncodeRTCP(p* RTCPCompoundPacket) ([]byte, error) {
+	if s.cipher != NONE {
+		// encrypt
+		srtcp, err := p.EncryptGCM(s.key, s.salt)
+		if err != nil {
+			return nil, err
+		}
+
+		return srtcp.GetBuffer(), nil
+	} else {
+		return nil, errors.New("rtp: cipher algorithm not supported")
+	}
+}
+
 func (s *RTPSession) NewRtcpRR() (*RTPPacket, error) {
 	return nil, nil
 }

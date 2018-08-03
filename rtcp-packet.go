@@ -236,7 +236,6 @@ R  :           SRTCP authentication tag (NOT RECOMMENDED)          :
 type SRTCPPacket struct {
   header RTCPHeader
   payload []byte
-
 }
 
 func (p *SRTCPPacket) GetESRTCPWord() []byte {
@@ -328,6 +327,11 @@ func (sp *SRTCPPacket) DecryptGCM(key, salt []byte) (*RTCPCompoundPacket, error)
   rtcp.packets = []*RTCPPacket{rtcpPacket}
 
 	return rtcp, nil
+}
+
+func (p *SRTCPPacket) GetBuffer() []byte {
+  buffer := append(p.header.buffer, p.payload...)
+  return buffer
 }
 
 func NewSRTCPPacket(buffer []byte) (*SRTCPPacket, error) {

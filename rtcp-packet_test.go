@@ -153,6 +153,5 @@ func TestSRTCPEncryption(t *testing.T) {
     unreachable(t)
   }
 
-  compareByteArrays(t, srtcp.header.buffer, ciphertext[:RTCPHeaderSize])
-  compareByteArrays(t, srtcp.payload, ciphertext[RTCPHeaderSize:])
+  compareByteArrays(t, srtcp.GetBuffer(), ciphertext)
 }
