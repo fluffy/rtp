@@ -81,6 +81,20 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 	return p, nil
 }
 
+func (s *RTPSession) DecodeRTCP(packetData []byte) (*RTCPCompoundPacket, error) {
+
+	p, err := NewSRTCPPacket(packetData)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cipher != NONE {
+		return p.DecryptGCM(s.key, s.salt)
+	}
+
+	return nil, errors.New("rtcp: cipher algorithm not supported")
+}
+
 func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	if s.cipher != NONE {
 		// Form the OHB with old seq
@@ -94,7 +108,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-		}	
+		}
 
 		err := p.SetOHB(origPt, origSeq, origMarker)
 		if err != nil {
@@ -117,7 +131,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 			s.roc++
 		}
 	}
-	
+
 	if s.useEKT {
 		// add back EKT
 		rtpLen := len(p.buffer)
@@ -131,6 +145,20 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	}
 
 	return p.buffer, nil
+}
+
+func (s* RTPSession) EncodeRTCP(p* RTCPCompoundPacket) ([]byte, error) {
+	if s.cipher != NONE {
+		// encrypt
+		srtcp, err := p.EncryptGCM(s.key, s.salt)
+		if err != nil {
+			return nil, err
+		}
+
+		return srtcp.GetBuffer(), nil
+	} else {
+		return nil, errors.New("rtp: cipher algorithm not supported")
+	}
 }
 
 func (s *RTPSession) NewRtcpRR() (*RTPPacket, error) {
@@ -182,6 +210,6 @@ func NewRTPSession( rewriteSeq bool ) *RTPSession {
 	s.roc = 0
 
 	s.rewriteSeq = rewriteSeq;
-	
+
 	return s
 }
