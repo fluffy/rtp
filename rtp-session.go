@@ -40,8 +40,6 @@ type RTPSession struct {
 	cipher CipherID
 	useEKT bool
 	rewriteSeq bool
-
-	kdf *KDF
 }
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
@@ -157,7 +155,6 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 
 func (s* RTPSession) EncodeRTCP(p* RTCPCompoundPacket) ([]byte, error) {
 	if s.cipher != NONE {
-
 		err := p.EncryptGCM(s.rtcpKey, s.rtcpSalt)
 		if err != nil {
 			return nil, err
@@ -179,9 +176,7 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 		return err
 	}
 
-	s.kdf = kdf
-
-	rtpKey, rtpSalt, rtcpKey, rtcpSalt, err := s.kdf.DeriveForStream(cipher)
+	rtpKey, rtpSalt, rtcpKey, rtcpSalt, err := kdf.DeriveForStream(cipher)
 	if err != nil {
 		return err
 	}
