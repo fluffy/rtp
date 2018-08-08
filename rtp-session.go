@@ -92,8 +92,8 @@ func (s *RTPSession) DecodeRTCP(packetData []byte) (*RTCPCompoundPacket, error) 
 		return nil, err
 	}
 
-	s.rtcpKey, s.rtcpSalt, err = s.kdf.DeriveForSRTCPStream(s.cipher,
-																													p.GetSRTCPIndex());
+	s.rtcpKey, s.rtcpSalt, err = s.kdf.DeriveForStream(s.cipher,
+																										 p.GetSRTCPIndex());
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 
 	s.kdf = kdf
 
-	key, salt, err := s.kdf.DeriveForStream(cipher)
+	key, salt, err := s.kdf.DeriveForStream(cipher, 0)
 	if err != nil {
 		return err
 	}

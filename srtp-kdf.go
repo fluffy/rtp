@@ -84,29 +84,13 @@ func (kdf KDF) getKeySize(cipher CipherID) (int, int, error) {
 	return keySize, saltSize, nil
 }
 
-func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
+func (kdf KDF) DeriveForStream(cipher CipherID, index uint32) ([]byte, []byte, error) {
 	keySize, saltSize, err := kdf.getKeySize(cipher)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// TODO replace them with actual values
-	roc := 0
-	seq := 0
-
-	key := kdf.Derive(Ke, (uint64(roc) << 16) + uint64(seq), keySize)
-	salt := kdf.Derive(Ks, (uint64(roc) << 16) + uint64(seq), saltSize)
+	key := kdf.Derive(Ke, uint64(index), keySize)
+	salt := kdf.Derive(Ks, uint64(index), saltSize)
 	return key, salt, nil
-}
-
-func (kdf KDF) DeriveForSRTCPStream(cipher CipherID, srtcpIndex uint32) ([]byte, []byte, error) {
-	keySize, saltSize, err := kdf.getKeySize(cipher)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rtcpKey := kdf.Derive(KCe, uint64(srtcpIndex), keySize)
-	rtcpSalt := kdf.Derive(KCs, uint64(srtcpIndex), saltSize)
-
-	return rtcpKey, rtcpSalt, nil
 }
