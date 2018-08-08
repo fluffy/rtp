@@ -68,7 +68,7 @@ func (kdf KDF) Derive(label byte, index uint64, size int) []byte {
 	return out
 }
 
-func (kdf KDF) getKeySize(cipher CipherID) (int, int, error) {
+func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, []byte, []byte, error) {
 	var keySize, saltSize int
 	switch cipher {
 	case SRTP_AEAD_AES_128_GCM:
@@ -78,19 +78,13 @@ func (kdf KDF) getKeySize(cipher CipherID) (int, int, error) {
 		keySize = 32
 		saltSize = 12
 	default:
-		return 0, 0, fmt.Errorf("Unsupported cipher: %04x", cipher)
+		return nil, nil, nil, nil, fmt.Errorf("Unsupported cipher: %04x", cipher)
 	}
 
-	return keySize, saltSize, nil
-}
+	rtpKey := kdf.Derive(Ke, 0, keySize)
+	rtpSalt := kdf.Derive(Ks, 0, saltSize)
+	rtcpKey := kdf.Derive(KCe, 0, keySize)
+	rtcpSalt := kdf.Derive(KCs, 0, saltSize)
 
-func (kdf KDF) DeriveForStream(cipher CipherID, index uint32) ([]byte, []byte, error) {
-	keySize, saltSize, err := kdf.getKeySize(cipher)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	key := kdf.Derive(Ke, uint64(index), keySize)
-	salt := kdf.Derive(Ks, uint64(index), saltSize)
-	return key, salt, nil
+	return rtpKey, rtpSalt, rtcpKey, rtcpSalt, nil
 }
