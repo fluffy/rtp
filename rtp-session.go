@@ -34,10 +34,14 @@ type RTPSession struct {
 	salt       []byte
 	seq        uint16
 	roc        uint32
+	rtcpKey    []byte
+	rtcpSalt   []byte
 
 	cipher CipherID
 	useEKT bool
 	rewriteSeq bool
+
+	kdf *KDF
 }
 
 func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
@@ -88,8 +92,14 @@ func (s *RTPSession) DecodeRTCP(packetData []byte) (*RTCPCompoundPacket, error) 
 		return nil, err
 	}
 
+	s.rtcpKey, s.rtcpSalt, err = s.kdf.DeriveForSRTCPStream(s.cipher,
+																													p.GetSRTCPIndex());
+	if err != nil {
+		return nil, err
+	}
+
 	if s.cipher != NONE {
-		err = p.DecryptGCM(s.key, s.salt)
+		err = p.DecryptGCM(s.rtcpKey, s.rtcpSalt)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +165,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 func (s* RTPSession) EncodeRTCP(p* RTCPCompoundPacket) ([]byte, error) {
 	if s.cipher != NONE {
 
-		err := p.EncryptGCM(s.key, s.salt)
+		err := p.EncryptGCM(s.rtcpKey, s.rtcpSalt)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +186,9 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 		return err
 	}
 
-	key, salt, err := kdf.DeriveForStream(cipher)
+	s.kdf = kdf
+
+	key, salt, err := s.kdf.DeriveForStream(cipher)
 	if err != nil {
 		return err
 	}

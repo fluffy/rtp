@@ -7,7 +7,7 @@ import (
 
 
 func TestRTCPConstructGet(t *testing.T) {
-  p := NewRTCPacket(RTCPTypeSR/*pt*/, 1 /*length*/, 0xbcdc0094/*sender ssrc*/, []byte{1, 2, 3, 4} /*payload*/)
+  p := NewRTCPPacket(RTCPTypeSR/*pt*/, 1 /*length*/, 0xbcdc0094/*sender ssrc*/, []byte{1, 2, 3, 4} /*payload*/)
 
   assertEqual(t, p.header.GetPT(), RTCPTypeSR)
   assertEqual(t, p.header.GetLength(), uint16(1))
@@ -15,7 +15,7 @@ func TestRTCPConstructGet(t *testing.T) {
 }
 
 func TestRTCPSet(t *testing.T) {
-  p := NewRTCPacket(RTCPTypeSR /*pt*/, 1 /*length*/, 0xbcdc0094/*sender ssrc*/, []byte{1, 2, 3, 4} /*payload*/)
+  p := NewRTCPPacket(RTCPTypeSR /*pt*/, 1 /*length*/, 0xbcdc0094/*sender ssrc*/, []byte{1, 2, 3, 4} /*payload*/)
 
   p.header.SetPT(RTCPTypeRR)
   p.header.SetLength(1)
@@ -81,8 +81,8 @@ func TestSRTCPDecryption(t *testing.T) {
   }
 
   myPlaintext := make([]byte, len(plaintext))
-  copy(myPlaintext[:RTCPHeaderSize], sp.header.buffer)
-  copy(myPlaintext[RTCPHeaderSize:], sp.buffer)
+  copy(myPlaintext[:rtcpHeaderSize], sp.header.buffer)
+  copy(myPlaintext[rtcpHeaderSize:], sp.buffer)
 
   compareByteArrays(t, myPlaintext, plaintext)
 }

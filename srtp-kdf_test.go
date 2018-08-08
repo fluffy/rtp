@@ -26,12 +26,12 @@ func TestKDF(t *testing.T) {
 		t.Fatalf("Error creating KDF")
 	}
 
-	cipherKeyTest := kdf.Derive(Ke, 0, 0, cipherKeySize)
+	cipherKeyTest := kdf.Derive(Ke, 0, cipherKeySize)
 	if !bytes.Equal(cipherKeyTest, cipherKey) {
 		t.Fatalf("Incorrect cipher key: %x != %x", cipherKeyTest, cipherKey)
 	}
 
-	cipherSaltTest := kdf.Derive(Ks, 0, 0, cipherSaltSize)
+	cipherSaltTest := kdf.Derive(Ks, 0, cipherSaltSize)
 	if !bytes.Equal(cipherSaltTest, cipherSalt) {
 		t.Fatalf("Incorrect cipher salt: %x != %x", cipherSaltTest, cipherSalt)
 	}

@@ -20,7 +20,7 @@ const (
 )
 
 const (
-  RTCPHeaderSize = 8
+  rtcpHeaderSize = 8
 )
 
 type RTCPHeader struct {
@@ -254,14 +254,14 @@ func (p *RTCPCompoundPacket) GetBuffer() []byte {
 func NewSRTCPPacket(buffer []byte) (*RTCPCompoundPacket, error) {
   sp := new(RTCPCompoundPacket)
 
-  if len(buffer) < RTCPHeaderSize {
+  if len(buffer) < rtcpHeaderSize {
     return nil, errors.New("rtcp: header size is too small")
   }
 
-  sp.header.buffer = buffer[:RTCPHeaderSize]
+  sp.header.buffer = buffer[:rtcpHeaderSize]
   length := sp.header.GetLengthInBytes() + 12
 
-  sp.buffer = buffer[RTCPHeaderSize:length]
+  sp.buffer = buffer[rtcpHeaderSize:length]
   sp.appendix = buffer[length:]
 
   return sp, nil
@@ -270,8 +270,8 @@ func NewSRTCPPacket(buffer []byte) (*RTCPCompoundPacket, error) {
 func NewRTCPCompoundPacket(buffer []byte, srtcpIndex uint32) (*RTCPCompoundPacket, error)  {
   p := new(RTCPCompoundPacket)
 
-  p.header.buffer = buffer[:RTCPHeaderSize]
-  p.buffer = buffer[RTCPHeaderSize:]
+  p.header.buffer = buffer[:rtcpHeaderSize]
+  p.buffer = buffer[rtcpHeaderSize:]
   p.appendix = make([]byte, 4)
   // | (1 << 32) sets the E-bit to 1
   binary.BigEndian.PutUint32(p.appendix, srtcpIndex | (1 << 31))
@@ -279,10 +279,10 @@ func NewRTCPCompoundPacket(buffer []byte, srtcpIndex uint32) (*RTCPCompoundPacke
   return p, nil
 }
 
-func NewRTCPacket(pt RTCPTypeClass, len uint16, senderSsrc uint32, payload []byte) *RTCPPacket {
+func NewRTCPPacket(pt RTCPTypeClass, len uint16, senderSsrc uint32, payload []byte) *RTCPPacket {
   p := new(RTCPPacket)
 
-  p.header.buffer = make([]byte, RTCPHeaderSize, MTU)
+  p.header.buffer = make([]byte, rtcpHeaderSize, MTU)
   p.payload = payload
 
   p.header.SetPT(pt)

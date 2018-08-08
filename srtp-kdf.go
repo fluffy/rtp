@@ -8,9 +8,12 @@ import (
 )
 
 const (
-	Ke byte = 0x00
-	Ka byte = 0x01
-	Ks byte = 0x02
+	Ke  byte = 0x00
+	Ka  byte = 0x01
+	Ks  byte = 0x02
+	KCe byte = 0x03
+	KCa byte = 0x04
+	KCs byte = 0x05
 )
 
 type KDF struct {
@@ -35,15 +38,14 @@ func NewKDF(masterKey, masterSalt []byte) (*KDF, error) {
 	}, nil
 }
 
-func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
-	indexVal := (uint64(roc) << 16) + uint64(seq)
-	index := make([]byte, 6)
-	for i := range index {
-		index[5-i] = byte(indexVal)
-		indexVal >>= 8
+func (kdf KDF) Derive(label byte, index uint64, size int) []byte {
+	indexVal := make([]byte, 6)
+	for i := range indexVal {
+		indexVal[5-i] = byte(index)
+		index >>= 8
 	}
 
-	keyID := append([]byte{label}, index...)
+	keyID := append([]byte{label}, indexVal...)
 
 	x := make([]byte, len(kdf.masterSalt))
 	copy(x, kdf.masterSalt)
@@ -66,7 +68,7 @@ func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
 	return out
 }
 
-func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
+func (kdf KDF) getKeySize(cipher CipherID) (int, int, error) {
 	var keySize, saltSize int
 	switch cipher {
 	case SRTP_AEAD_AES_128_GCM:
@@ -76,10 +78,35 @@ func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
 		keySize = 32
 		saltSize = 12
 	default:
-		return nil, nil, fmt.Errorf("Unsupported cipher: %04x", cipher)
+		return 0, 0, fmt.Errorf("Unsupported cipher: %04x", cipher)
 	}
 
-	key := kdf.Derive(Ke, 0, 0, keySize)
-	salt := kdf.Derive(Ks, 0, 0, saltSize)
+	return keySize, saltSize, nil
+}
+
+func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
+	keySize, saltSize, err := kdf.getKeySize(cipher)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// TODO replace them with actual values
+	roc := 0
+	seq := 0
+
+	key := kdf.Derive(Ke, (uint64(roc) << 16) + uint64(seq), keySize)
+	salt := kdf.Derive(Ks, (uint64(roc) << 16) + uint64(seq), saltSize)
 	return key, salt, nil
+}
+
+func (kdf KDF) DeriveForSRTCPStream(cipher CipherID, srtcpIndex uint32) ([]byte, []byte, error) {
+	keySize, saltSize, err := kdf.getKeySize(cipher)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rtcpKey := kdf.Derive(KCe, uint64(srtcpIndex), keySize)
+	rtcpSalt := kdf.Derive(KCs, uint64(srtcpIndex), saltSize)
+
+	return rtcpKey, rtcpSalt, nil
 }
