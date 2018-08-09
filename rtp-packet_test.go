@@ -1,7 +1,7 @@
 package rtp
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/hex"
 	"testing"
 )
@@ -246,9 +246,7 @@ func TestGCM(t *testing.T) {
 		t.Fatalf("Encrypt error: %v", err)
 	}
 
-	if !bytes.Equal(encrypted.buffer, ciphertext) {
-		t.Fatalf("Known-answer test failed: %x != %x", encrypted.buffer, ciphertext)
-	}
+	compareByteArrays(t, encrypted.buffer, ciphertext)
 
 	decrypted := RTPPacket{}
 	decrypted.buffer = make([]byte, len(encrypted.buffer))
@@ -258,7 +256,5 @@ func TestGCM(t *testing.T) {
 		t.Fatalf("Decrypt error: %v", err)
 	}
 
-	if !bytes.Equal(original.buffer, decrypted.buffer) {
-		t.Fatalf("Round-trip failed: %x != %x", original.buffer, decrypted.buffer)
-	}
+	compareByteArrays(t, original.buffer, decrypted.buffer)
 }

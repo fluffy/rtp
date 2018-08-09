@@ -8,9 +8,12 @@ import (
 )
 
 const (
-	Ke byte = 0x00
-	Ka byte = 0x01
-	Ks byte = 0x02
+	Ke  byte = 0x00
+	Ka  byte = 0x01
+	Ks  byte = 0x02
+	KCe byte = 0x03
+	KCa byte = 0x04
+	KCs byte = 0x05
 )
 
 type KDF struct {
@@ -35,15 +38,14 @@ func NewKDF(masterKey, masterSalt []byte) (*KDF, error) {
 	}, nil
 }
 
-func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
-	indexVal := (uint64(roc) << 16) + uint64(seq)
-	index := make([]byte, 6)
-	for i := range index {
-		index[5-i] = byte(indexVal)
-		indexVal >>= 8
+func (kdf KDF) Derive(label byte, index uint64, size int) []byte {
+	indexVal := make([]byte, 6)
+	for i := range indexVal {
+		indexVal[5-i] = byte(index)
+		index >>= 8
 	}
 
-	keyID := append([]byte{label}, index...)
+	keyID := append([]byte{label}, indexVal...)
 
 	x := make([]byte, len(kdf.masterSalt))
 	copy(x, kdf.masterSalt)
@@ -66,7 +68,7 @@ func (kdf KDF) Derive(label byte, roc uint32, seq uint16, size int) []byte {
 	return out
 }
 
-func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
+func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, []byte, []byte, error) {
 	var keySize, saltSize int
 	switch cipher {
 	case SRTP_AEAD_AES_128_GCM:
@@ -76,10 +78,13 @@ func (kdf KDF) DeriveForStream(cipher CipherID) ([]byte, []byte, error) {
 		keySize = 32
 		saltSize = 12
 	default:
-		return nil, nil, fmt.Errorf("Unsupported cipher: %04x", cipher)
+		return nil, nil, nil, nil, fmt.Errorf("Unsupported cipher: %04x", cipher)
 	}
 
-	key := kdf.Derive(Ke, 0, 0, keySize)
-	salt := kdf.Derive(Ks, 0, 0, saltSize)
-	return key, salt, nil
+	rtpKey := kdf.Derive(Ke, 0, keySize)
+	rtpSalt := kdf.Derive(Ks, 0, saltSize)
+	rtcpKey := kdf.Derive(KCe, 0, keySize)
+	rtcpSalt := kdf.Derive(KCs, 0, saltSize)
+
+	return rtpKey, rtpSalt, rtcpKey, rtcpSalt, nil
 }

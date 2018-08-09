@@ -34,6 +34,8 @@ type RTPSession struct {
 	salt       []byte
 	seq        uint16
 	roc        uint32
+	rtcpKey    []byte
+	rtcpSalt   []byte
 
 	cipher CipherID
 	useEKT bool
@@ -81,6 +83,24 @@ func (s *RTPSession) Decode(packetData []byte) (*RTPPacket, error) {
 	return p, nil
 }
 
+func (s *RTPSession) DecodeRTCP(packetData []byte) (*RTCPCompoundPacket, error) {
+	p, err := NewSRTCPPacket(packetData)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cipher != NONE {
+		err = p.DecryptGCM(s.rtcpKey, s.rtcpSalt)
+		if err != nil {
+			return nil, err
+		}
+
+		return p, nil
+	}
+
+	return nil, errors.New("rtcp: cipher algorithm not supported")
+}
+
 func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	if s.cipher != NONE {
 		// Form the OHB with old seq
@@ -94,7 +114,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-		}	
+		}
 
 		err := p.SetOHB(origPt, origSeq, origMarker)
 		if err != nil {
@@ -117,7 +137,7 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 			s.roc++
 		}
 	}
-	
+
 	if s.useEKT {
 		// add back EKT
 		rtpLen := len(p.buffer)
@@ -133,6 +153,19 @@ func (s *RTPSession) Encode(p *RTPPacket) ([]byte, error) {
 	return p.buffer, nil
 }
 
+func (s* RTPSession) EncodeRTCP(p* RTCPCompoundPacket) ([]byte, error) {
+	if s.cipher != NONE {
+		err := p.EncryptGCM(s.rtcpKey, s.rtcpSalt)
+		if err != nil {
+			return nil, err
+		}
+
+		return p.GetBuffer(), nil
+	} else {
+		return nil, errors.New("rtp: cipher algorithm not supported")
+	}
+}
+
 func (s *RTPSession) NewRtcpRR() (*RTPPacket, error) {
 	return nil, nil
 }
@@ -143,15 +176,17 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 		return err
 	}
 
-	key, salt, err := kdf.DeriveForStream(cipher)
+	rtpKey, rtpSalt, rtcpKey, rtcpSalt, err := kdf.DeriveForStream(cipher)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("SRTP encryption key: %x\n", key)
 
-	s.key = key
-	s.salt = salt
+	s.key = rtpKey
+	s.salt = rtpSalt
+	s.rtcpKey = rtcpKey
+	s.rtcpSalt = rtcpSalt
 	s.cipher = cipher
 	s.useEKT = useEKT
 	return nil
@@ -182,6 +217,6 @@ func NewRTPSession( rewriteSeq bool ) *RTPSession {
 	s.roc = 0
 
 	s.rewriteSeq = rewriteSeq;
-	
+
 	return s
 }
