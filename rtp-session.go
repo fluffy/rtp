@@ -181,7 +181,7 @@ func (s *RTPSession) SetSRTP(cipher CipherID, useEKT bool, masterKey, masterSalt
 		return err
 	}
 
-	fmt.Printf("SRTP encryption key: %x\n", key)
+	fmt.Printf("SRTP encryption key: %x\n", rtpKey)
 
 	s.key = rtpKey
 	s.salt = rtpSalt
