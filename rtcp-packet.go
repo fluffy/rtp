@@ -114,6 +114,21 @@ type RTCPCompoundPacket struct {
   appendix []byte
 }
 
+func (p *RTCPCompoundPacket) Clone() *RTCPCompoundPacket {
+  p2 := &RTCPCompoundPacket{
+    header: RTCPHeader{
+      buffer: make([]byte, rtcpHeaderSize),
+    },
+    buffer:    make([]byte, len(p.buffer)),
+    appendix:    make([]byte, len(p.appendix)),
+  }
+
+  copy(p2.header.buffer, p.header.buffer)
+  copy(p2.buffer, p.buffer)
+  copy(p2.appendix, p.appendix)
+  return p2
+}
+
 func (p *RTCPCompoundPacket) GetPackets() []*RTCPPacket {
   // TODO Support more than one package
   rtcpPacket := new(RTCPPacket)
@@ -126,7 +141,6 @@ func (p *RTCPCompoundPacket) GetPackets() []*RTCPPacket {
 func (p *RTCPCompoundPacket) GetHeader() *RTCPHeader {
   return &p.header
 }
-
 // SRTCP access functions
 func (p *RTCPCompoundPacket) GetESRTCPWord() []byte {
   return p.appendix[:4]
