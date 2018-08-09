@@ -123,6 +123,10 @@ func (p *RTCPCompoundPacket) GetPackets() []*RTCPPacket {
   return []*RTCPPacket{rtcpPacket}
 }
 
+func (p *RTCPCompoundPacket) GetHeader() *RTCPHeader {
+  return &p.header
+}
+
 // SRTCP access functions
 func (p *RTCPCompoundPacket) GetESRTCPWord() []byte {
   return p.appendix[:4]
